@@ -1,3 +1,5 @@
+# EasyBluetooth工具：https://softnav.top/bluetooth/
+
 # 统一设备电量 HTTP 接口（VIP）使用教程
 欢迎基于本接口开发皮肤、插件及扩展应用。
 商业集成请联系作者授权。
