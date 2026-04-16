@@ -406,7 +406,7 @@ std::wstring DeviceBatteryManager::Utf8ToWide(const std::string& text)
     }
 
     std::wstring result(wcharCount, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), result.data(), wcharCount);
+    MultiByteToWideChar(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), &result[0], wcharCount);
     return result;
 }
 
@@ -489,7 +489,7 @@ bool DeviceBatteryManager::FetchStatusJson(std::string& jsonText) const
         return false;
     }
 
-    DWORD timeout = static_cast<DWORD>(std::max(config_.timeoutMs, 500));
+    DWORD timeout = static_cast<DWORD>((std::max)(config_.timeoutMs, 500));
     WinHttpSetTimeouts(session, timeout, timeout, timeout, timeout);
 
     HINTERNET connection = WinHttpConnect(session, config_.host.c_str(), static_cast<INTERNET_PORT>(config_.port), 0);
@@ -535,7 +535,7 @@ bool DeviceBatteryManager::FetchStatusJson(std::string& jsonText) const
             {
                 std::string buffer(availableSize, '\0');
                 DWORD downloaded = 0;
-                if (WinHttpReadData(request, buffer.data(), availableSize, &downloaded) != TRUE)
+                if (WinHttpReadData(request, &buffer[0], availableSize, &downloaded) != TRUE)
                 {
                     payload.clear();
                     break;
@@ -562,14 +562,14 @@ bool DeviceBatteryManager::ParseAndSelectDevice(const std::string& jsonText, Dev
     std::string devicesArray;
     if (!ExtractDevicesArray(jsonText, devicesArray))
     {
-        errorText = L"接口返回中未找到 devices 字段";
+        errorText = L"Missing devices field in response";
         return false;
     }
 
     std::vector<std::string> objects = SplitDeviceObjects(devicesArray);
     if (objects.empty())
     {
-        errorText = L"没有可显示设备";
+        errorText = L"No visible devices";
         return false;
     }
 
@@ -585,7 +585,7 @@ bool DeviceBatteryManager::ParseAndSelectDevice(const std::string& jsonText, Dev
     }
     if (deviceList.empty())
     {
-        errorText = L"设备列表解析失败";
+        errorText = L"Failed to parse device list";
         return false;
     }
 
@@ -681,18 +681,18 @@ void DeviceBatteryManager::UpdateDisplay(const DeviceBatteryInfo& selectedInfo)
     std::wstring deviceTitle = selectedInfo.renamedName.empty() ? selectedInfo.name : selectedInfo.renamedName;
     if (deviceTitle.empty())
     {
-        deviceTitle = L"未命名设备";
+        deviceTitle = L"Unnamed device";
     }
 
     std::wstringstream stream;
-    stream << deviceTitle << L" 电量: " << displayText_;
+    stream << deviceTitle << L" battery: " << displayText_;
     if (selectedInfo.isSleeping)
     {
-        stream << L" (休眠)";
+        stream << L" (sleeping)";
     }
     if (selectedInfo.isBatteryUnsupported)
     {
-        stream << L" (不支持标准电量)";
+        stream << L" (battery unsupported)";
     }
     tooltipText_ = stream.str();
 }
@@ -703,7 +703,7 @@ void DeviceBatteryManager::RefreshIfNeeded()
     if (lastRequestTick_ != 0)
     {
         const std::uint64_t elapsed = nowTick - lastRequestTick_;
-        if (elapsed < static_cast<std::uint64_t>(std::max(config_.refreshIntervalMs, 500)))
+        if (elapsed < static_cast<std::uint64_t>((std::max)(config_.refreshIntervalMs, 500)))
         {
             return;
         }
@@ -713,7 +713,7 @@ void DeviceBatteryManager::RefreshIfNeeded()
     std::string jsonText;
     if (!FetchStatusJson(jsonText))
     {
-        tooltipText_ = L"设备电量接口请求失败";
+        tooltipText_ = L"Battery API request failed";
         return;
     }
 
@@ -721,7 +721,7 @@ void DeviceBatteryManager::RefreshIfNeeded()
     std::wstring errorText;
     if (!ParseAndSelectDevice(jsonText, selectedInfo, errorText))
     {
-        tooltipText_ = L"设备电量接口解析失败: " + errorText;
+        tooltipText_ = L"Battery API parse failed: " + errorText;
         return;
     }
     UpdateDisplay(selectedInfo);

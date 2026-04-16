@@ -58,6 +58,6 @@ private:
     DeviceBatteryConfig config_{};
     std::wstring configPath_{};
     std::wstring displayText_{ L"--" };
-    std::wstring tooltipText_{ L"设备电量：--" };
+    std::wstring tooltipText_{ L"Device battery: --" };
     std::uint64_t lastRequestTick_{ 0 };
 };

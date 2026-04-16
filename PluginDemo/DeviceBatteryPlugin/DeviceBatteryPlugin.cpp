@@ -29,7 +29,7 @@ const wchar_t* DeviceBatteryPlugin::GetInfo(PluginInfoIndex index)
     case TMI_NAME:
         return L"2.4GDeviceBattery";
     case TMI_DESCRIPTION:
-        return L"读取统一设备电量HTTP接口并显示2.4G设备电量";
+        return L"Read device battery from unified HTTP API";
     case TMI_AUTHOR:
         return L"Custom";
     case TMI_COPYRIGHT:

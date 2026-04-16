@@ -4,7 +4,7 @@
 
 const wchar_t* DeviceBatteryItem::GetItemName() const
 {
-    return L"2.4G设备电量";
+    return L"2.4GDeviceBattery";
 }
 
 const wchar_t* DeviceBatteryItem::GetItemId() const
