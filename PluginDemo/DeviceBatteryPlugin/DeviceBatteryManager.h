@@ -17,6 +17,7 @@ struct DeviceBatteryConfig
     int timeoutMs{ 1500 };
     int refreshIntervalMs{ 3000 };
     bool preferTrayDevice{ true };
+    bool showChargingMarker{ true };
     std::wstring source{};
     std::wstring snapshotFile{};
     int maxSnapshotAgeSeconds{ 900 };
@@ -50,6 +51,7 @@ public:
     const std::wstring& GetDisplayText() const;
     const std::wstring& GetTooltipText() const;
     const std::wstring& GetLabelText() const;
+    bool ShowChargingMarker() const { return config_.showChargingMarker; }
     static bool ParseAndSelectDevice(const std::string& jsonText, const DeviceBatteryConfig& config, DeviceBatteryInfo& selectedInfo, std::wstring& errorText);
 
 private:

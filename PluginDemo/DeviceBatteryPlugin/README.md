@@ -16,6 +16,7 @@ max_snapshot_age_seconds=900
 [display]
 item_count=3
 trailing_spacer=1
+show_charging_marker=0
 [device0]
 source=Razer
 label_text=雷蛇
@@ -48,7 +49,9 @@ label_text=MIC
 
 只在“雷蛇/AE7”标签前留一处设备组间距，MIC 与两台鼠标采用正常列间距。CPU 与独显的功耗、温度标签在 `config.ini` 的 `[plugin_display_str_taskbar_window]` 对应项目设为空字符串。新增占位项目后，手工保存的全局索引与配色需将后续 HardwareMonitor 项目后移一位。
 
-整组右移只使用用户配置 `[task_bar] window_offset_left=70`，不修改定位代码。摄氏度保持与数值相同字号，HardwareMonitor.ini 的温度项目使用 `unit = " °C"`（单位前为 U+2009 细空格）略微拉开间距。
+整组右移只使用用户配置 `[task_bar] window_offset_left`，不修改定位代码。摄氏度保持与数值相同字号，HardwareMonitor.ini 的温度项目使用 `unit = " °C"`（单位前为 U+2009 细空格）略微拉开间距。CPU 使用率用整数百分比，项目间距设为 2；雷蛇/AE7 标签按本机字体宽度对齐。
+
+`show_charging_marker=0` 会省去电量数字后的 `+` 及其预留宽度，完整保留 0%–100% 和 `--`；充电信息仍在提示中显示。默认 1 保持旧的 `77%+` 行为。
 
 NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用固定设备配色：
 

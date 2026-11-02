@@ -110,6 +110,12 @@ int wmain(int argc, wchar_t** argv) {
 
         WriteJson(snapshot, R"([{"source":"Razer","battery":77,"isCharging":true}])");
         manager.LoadConfig(dir); manager.RefreshIfNeeded(); Check(manager.GetDisplayText() == L"77%+", "Charging indication");
+        Check(WritePrivateProfileStringW(L"display", L"show_charging_marker", L"0", exeIni.c_str()) != 0, "Enable compact battery percentages");
+        manager.LoadConfig(dir); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"77%" && manager.GetTooltipText().find(L"charging") != std::wstring::npos, "Compact percent keeps charging information in tooltip");
+        Check(WritePrivateProfileStringW(L"display", L"show_charging_marker", L"0", dllIni.c_str()) != 0, "Enable compact plugin layout");
+        plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR, dir.c_str()); plugin->DataRequired();
+        Check(std::wstring(plugin->GetItem(0)->GetItemValueSampleText()) == L"100%" && std::wstring(plugin->GetItem(0)->GetItemValueText()) == L"77%", "Narrow sample reserves full percentage without hidden plus width");
         WriteJson(snapshot, R"([{"source":"Razer","battery":66,"status":"offline"}])");
         manager.LoadConfig(dir); manager.RefreshIfNeeded(); Check(manager.GetDisplayText() == L"--", "Offline historical battery is not displayed as current data");
         WriteJson(snapshot, R"([{"source":"Razer","battery":null}])");

@@ -462,6 +462,7 @@ void DeviceBatteryManager::LoadConfig(const std::wstring& configDir, int index)
     config_.timeoutMs = GetPrivateProfileIntW(L"api", L"timeout_ms", 1500, configPath_.c_str());
     config_.refreshIntervalMs = GetPrivateProfileIntW(L"api", L"refresh_interval_ms", 3000, configPath_.c_str());
     config_.preferTrayDevice = GetPrivateProfileIntW(L"api", L"prefer_tray_device", 1, configPath_.c_str()) != 0;
+    config_.showChargingMarker = GetPrivateProfileIntW(L"display", L"show_charging_marker", 1, configPath_.c_str()) != 0;
 
     GetPrivateProfileStringW(L"api", L"token", L"", buffer, static_cast<DWORD>(std::size(buffer)), configPath_.c_str());
     config_.token = Trim(buffer);
@@ -741,7 +742,7 @@ void DeviceBatteryManager::UpdateDisplay(const DeviceBatteryInfo& selectedInfo)
     if (selectedInfo.hasBattery && !selectedInfo.isSleeping && selectedInfo.status != L"offline")
     {
         displayText_ = std::to_wstring(selectedInfo.battery) + L"%";
-        if (selectedInfo.isCharging)
+        if (selectedInfo.isCharging && config_.showChargingMarker)
         {
             displayText_ += L"+";
         }
@@ -759,6 +760,7 @@ void DeviceBatteryManager::UpdateDisplay(const DeviceBatteryInfo& selectedInfo)
 
     std::wstringstream stream;
     stream << deviceTitle << L" battery: " << displayText_;
+    if (selectedInfo.isCharging && !selectedInfo.isSleeping && selectedInfo.status != L"offline" && !config_.showChargingMarker) stream << L" (charging)";
     if (selectedInfo.isSleeping)
     {
         stream << L" (sleeping)";

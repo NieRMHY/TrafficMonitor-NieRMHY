@@ -30,5 +30,5 @@ const wchar_t* DeviceBatteryItem::GetItemValueText() const
 
 const wchar_t* DeviceBatteryItem::GetItemValueSampleText() const
 {
-    return L"100%+";
+    return DeviceBatteryManager::Instance(index_).ShowChargingMarker() ? L"100%+" : L"100%";
 }
