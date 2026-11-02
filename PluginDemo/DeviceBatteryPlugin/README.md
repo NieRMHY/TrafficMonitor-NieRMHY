@@ -28,6 +28,16 @@ label_text=MIC
 
 重启 TrafficMonitor，在显示项目中启用三个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`，原项目 ID 保留。
 
+NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用固定设备配色：
+
+| 项目 | 标签 | RGB 颜色 |
+| --- | --- | --- |
+| Device24GBattery | 雷蛇 | 深绿 `#3CC878` |
+| Device24GBattery_2 | AE7 | 粉色 `#F49AC2` |
+| Device24GBattery_3 | MIC | 橙色 `#FFB454` |
+
+这些颜色由 TrafficMonitor 的每项目颜色设置控制。FerrisPulse 自身使用按剩余电量变化的绿/黄/红规则，两边共享数值，显示配色分别设置。
+
 选择优先级为 `device_id`、`device_name`、`source`，显式选择不存在时显示 `--`，不会退回另一台设备。多个同品牌设备请用快照内 `id` 配置 `device_id`。未指定选择条件时保留旧的托盘设备优先策略。
 
 `77%+` 是确认充电。设备休眠/离线、快照过期、生产进程退出、数据未知或文件不可读时显示 `--`，不把历史电量显示成当前数据。文件最大 256 KiB；生产 PID 必须存活且进程创建时间不得晚于文件时间。读取每项时不会触碰 HID；实际更新频率沿用 FerrisPulse 的硬件轮询设置。900 秒过期阈值可设为 30–3600 秒。
