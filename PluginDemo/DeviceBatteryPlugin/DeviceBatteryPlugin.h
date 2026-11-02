@@ -2,6 +2,7 @@
 
 #include "PluginInterface.h"
 #include "DeviceBatteryItem.h"
+#include "DeviceBatteryManager.h"
 
 class DeviceBatteryPlugin : public ITMPlugin
 {
@@ -18,7 +19,8 @@ private:
     DeviceBatteryPlugin() = default;
 
 private:
-    DeviceBatteryItem batteryItem_{};
+    DeviceBatteryItem batteryItems_[DeviceBatteryManager::MaxItems]{};
+    int itemCount_{1};
 };
 
 #ifdef __cplusplus

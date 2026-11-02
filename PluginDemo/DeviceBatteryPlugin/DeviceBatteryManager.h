@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <mutex>
 
 struct DeviceBatteryConfig
 {
@@ -16,6 +17,9 @@ struct DeviceBatteryConfig
     int timeoutMs{ 1500 };
     int refreshIntervalMs{ 3000 };
     bool preferTrayDevice{ true };
+    std::wstring source{};
+    std::wstring snapshotFile{};
+    int maxSnapshotAgeSeconds{ 900 };
 };
 
 struct DeviceBatteryInfo
@@ -29,26 +33,31 @@ struct DeviceBatteryInfo
     bool isSleeping{ false };
     bool isBatteryUnsupported{ false };
     bool isShownInTray{ false };
+    std::wstring source{};
+    std::wstring status{ L"online" };
 };
 
 class DeviceBatteryManager
 {
 public:
-    static DeviceBatteryManager& Instance();
+    static constexpr int MaxItems = 8;
+    static DeviceBatteryManager& Instance(int index = 0);
     static std::wstring Utf8ToWide(const std::string& text);
 
-    void LoadConfig(const std::wstring& configDir);
+    void LoadConfig(const std::wstring& configDir, int index = 0);
     void RefreshIfNeeded();
 
     const std::wstring& GetDisplayText() const;
     const std::wstring& GetTooltipText() const;
     const std::wstring& GetLabelText() const;
+    static bool ParseAndSelectDevice(const std::string& jsonText, const DeviceBatteryConfig& config, DeviceBatteryInfo& selectedInfo, std::wstring& errorText);
 
 private:
     DeviceBatteryManager() = default;
 
     bool FetchStatusJson(std::string& jsonText) const;
-    bool ParseAndSelectDevice(const std::string& jsonText, DeviceBatteryInfo& selectedInfo, std::wstring& errorText) const;
+    bool ReadSnapshotFile(std::string& jsonText) const;
+    void SetUnavailable(const std::wstring& reason);
 
     void UpdateDisplay(const DeviceBatteryInfo& selectedInfo);
     static std::wstring GetModuleFileNameOnly();
@@ -60,4 +69,5 @@ private:
     std::wstring displayText_{ L"--" };
     std::wstring tooltipText_{ L"Device battery: --" };
     std::uint64_t lastRequestTick_{ 0 };
+    mutable std::mutex textMutex_;
 };
