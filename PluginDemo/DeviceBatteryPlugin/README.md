@@ -15,6 +15,7 @@ refresh_interval_ms=3000
 max_snapshot_age_seconds=900
 [display]
 item_count=3
+trailing_spacer=1
 [device0]
 source=Razer
 label_text=雷蛇
@@ -27,6 +28,27 @@ label_text=MIC
 ```
 
 重启 TrafficMonitor，在显示项目中启用三个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`，原项目 ID 保留。
+
+双行任务栏中，当 MIC 是最后一个单独项目时，TrafficMonitor 会把标签和数值拆成上下两行。可选 `trailing_spacer=1` 会增加空白项目 `Device24GBatterySpacer`，在显示项目中启用并紧接 MIC 排列，便能让 MIC 的标签/数值显示在同一行，下一行保持空白。空白项目不请求设备数据，也不占文本宽度；默认关闭以兼容旧配置。
+
+紧凑布局从左至右，每列上下配对：
+
+| 上行 | 下行 |
+| --- | --- |
+| 上传 | 下载 |
+| 内存百分比 | 已用内存数值 |
+| CPU 使用率 | CPU 频率（无前缀） |
+| CPU 功耗（无前缀） | CPU 温度（无前缀） |
+| 核显使用率 | 核显功耗 |
+| 独显使用率 | 显存使用率 |
+| 独显功耗（无前缀） | 独显温度（无前缀） |
+| 固态1温度 | 固态2温度 |
+| 雷蛇电量 | AE7 电量 |
+| MIC 电量 | 空白 |
+
+只在“雷蛇/AE7”标签前留一处设备组间距，MIC 与两台鼠标采用正常列间距。CPU 与独显的功耗、温度标签在 `config.ini` 的 `[plugin_display_str_taskbar_window]` 对应项目设为空字符串。新增占位项目后，手工保存的全局索引与配色需将后续 HardwareMonitor 项目后移一位。
+
+整组右移只使用用户配置 `[task_bar] window_offset_left=70`，不修改定位代码。摄氏度保持与数值相同字号，HardwareMonitor.ini 的温度项目使用 `unit = " °C"`（单位前为 U+2009 细空格）略微拉开间距。
 
 NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用固定设备配色：
 

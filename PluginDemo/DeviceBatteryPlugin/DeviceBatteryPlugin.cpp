@@ -16,6 +16,7 @@ IPluginItem* DeviceBatteryPlugin::GetItem(int index)
     {
         return &batteryItems_[index];
     }
+    if (trailingSpacer_ && index == itemCount_) return &spacerItem_;
     return nullptr;
 }
 
@@ -37,7 +38,7 @@ const wchar_t* DeviceBatteryPlugin::GetInfo(PluginInfoIndex index)
     case TMI_COPYRIGHT:
         return L"Copyright (C) 2026";
     case TMI_VERSION:
-        return L"1.1.0";
+        return L"1.1.1";
     case TMI_URL:
         return L"https://github.com/zhongyang219/TrafficMonitor";
     default:
@@ -56,6 +57,7 @@ void DeviceBatteryPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* 
         std::wstring directory(data);
         if (!directory.empty() && directory.back() != L'\\' && directory.back() != L'/') directory += L'\\';
         const std::wstring configPath = directory + module.substr(module.find_last_of(L"\\/") + 1) + L".ini";
+        trailingSpacer_ = GetPrivateProfileIntW(L"display", L"trailing_spacer", 0, configPath.c_str()) != 0;
         itemCount_ = (std::max)(1, (std::min)(DeviceBatteryManager::MaxItems,
             static_cast<int>(GetPrivateProfileIntW(L"display", L"item_count", 1, configPath.c_str()))));
         for (int i = 0; i < itemCount_; ++i)

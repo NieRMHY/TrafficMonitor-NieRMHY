@@ -98,6 +98,16 @@ int wmain(int argc, wchar_t** argv) {
         Check(plugin->GetItem(3) == nullptr && plugin->GetItem(-1) == nullptr, "Plugin item bounds");
         Check(std::wstring(plugin->GetItem(0)->GetItemValueText()) == L"51%" && std::wstring(plugin->GetItem(1)->GetItemValueText()) == L"--" && std::wstring(plugin->GetItem(2)->GetItemValueText()) == L"60%", "Three independent batteries; sleeping device is unavailable");
 
+        Check(WritePrivateProfileStringW(L"display", L"trailing_spacer", L"1", dllIni.c_str()) != 0, "Enable optional layout spacer");
+        plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR, dir.c_str()); plugin->DataRequired();
+        auto* spacer = plugin->GetItem(3);
+        Check(spacer && std::wstring(spacer->GetItemId()) == L"Device24GBatterySpacer" && plugin->GetItem(4) == nullptr, "Spacer appended without changing existing battery IDs");
+        Check(std::wstring(spacer->GetItemLableText()).empty() && std::wstring(spacer->GetItemValueText()).empty() && std::wstring(spacer->GetItemValueSampleText()).empty(), "Spacer reserves no text width and draws no fake reading");
+        Check(std::wstring(plugin->GetItem(2)->GetItemValueText()) == L"60%", "Spacer does not affect microphone data");
+        Check(WritePrivateProfileStringW(L"display", L"trailing_spacer", L"0", dllIni.c_str()) != 0, "Disable optional layout spacer");
+        plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR, dir.c_str());
+        Check(plugin->GetItem(3) == nullptr, "Spacer defaults remain backwards compatible");
+
         WriteJson(snapshot, R"([{"source":"Razer","battery":77,"isCharging":true}])");
         manager.LoadConfig(dir); manager.RefreshIfNeeded(); Check(manager.GetDisplayText() == L"77%+", "Charging indication");
         WriteJson(snapshot, R"([{"source":"Razer","battery":66,"status":"offline"}])");

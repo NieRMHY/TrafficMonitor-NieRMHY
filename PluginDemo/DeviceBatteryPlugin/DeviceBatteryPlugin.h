@@ -20,7 +20,9 @@ private:
 
 private:
     DeviceBatteryItem batteryItems_[DeviceBatteryManager::MaxItems]{};
+    DeviceBatterySpacerItem spacerItem_{};
     int itemCount_{1};
+    bool trailingSpacer_{};
 };
 
 #ifdef __cplusplus
