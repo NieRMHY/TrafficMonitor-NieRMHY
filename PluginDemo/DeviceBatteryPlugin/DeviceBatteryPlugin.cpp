@@ -38,7 +38,7 @@ const wchar_t* DeviceBatteryPlugin::GetInfo(PluginInfoIndex index)
     case TMI_COPYRIGHT:
         return L"Copyright (C) 2026";
     case TMI_VERSION:
-        return L"1.1.3";
+        return L"1.1.4";
     case TMI_URL:
         return L"https://github.com/zhongyang219/TrafficMonitor";
     default:
@@ -48,6 +48,8 @@ const wchar_t* DeviceBatteryPlugin::GetInfo(PluginInfoIndex index)
 
 void DeviceBatteryPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* data)
 {
+    if (data && index == EI_LABEL_TEXT_COLOR) { labelColor_.store(wcstoul(data, nullptr, 10)); return; }
+    if (data && index == EI_VALUE_TEXT_COLOR) { valueColor_.store(wcstoul(data, nullptr, 10)); return; }
     if (index == EI_CONFIG_DIR && data != nullptr)
     {
         DeviceBatteryManager::Instance().LoadConfig(data);
@@ -58,6 +60,7 @@ void DeviceBatteryPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* 
         if (!directory.empty() && directory.back() != L'\\' && directory.back() != L'/') directory += L'\\';
         const std::wstring configPath = directory + module.substr(module.find_last_of(L"\\/") + 1) + L".ini";
         trailingSpacer_ = GetPrivateProfileIntW(L"display", L"trailing_spacer", 0, configPath.c_str()) != 0;
+        alignColumns_ = GetPrivateProfileIntW(L"display", L"align_columns", 0, configPath.c_str()) != 0;
         itemCount_ = (std::max)(1, (std::min)(DeviceBatteryManager::MaxItems,
             static_cast<int>(GetPrivateProfileIntW(L"display", L"item_count", 1, configPath.c_str()))));
         for (int i = 0; i < itemCount_; ++i)
@@ -66,6 +69,32 @@ void DeviceBatteryPlugin::OnExtenedInfo(ExtendedInfoIndex index, const wchar_t* 
             DeviceBatteryManager::Instance(i).LoadConfig(data, i);
         }
     }
+}
+
+DeviceBatteryPlugin::ColumnLayout DeviceBatteryPlugin::MeasureColumns(void* dc) const
+{
+    HDC hdc = static_cast<HDC>(dc);
+    ColumnLayout layout;
+    if (!hdc) return layout;
+    for (int i = 0; i < itemCount_; ++i)
+    {
+        const auto& manager = DeviceBatteryManager::Instance(i);
+        const std::wstring label = manager.GetLabelText() + L": ";
+        SIZE size{};
+        GetTextExtentPoint32W(hdc, label.c_str(), static_cast<int>(label.size()), &size);
+        layout.labelWidth = (std::max)(layout.labelWidth, static_cast<int>(size.cx));
+        // Proportional fonts can make 88% wider than 100%; reserve the actual maximum.
+        for (int percent = 0; percent <= 100; ++percent)
+        {
+            const std::wstring value = std::to_wstring(percent) + (manager.ShowChargingMarker() ? L"%+" : L"%");
+            GetTextExtentPoint32W(hdc, value.c_str(), static_cast<int>(value.size()), &size);
+            layout.valueWidth = (std::max)(layout.valueWidth, static_cast<int>(size.cx));
+        }
+    }
+    TEXTMETRICW metrics{};
+    GetTextMetricsW(hdc, &metrics);
+    layout.gap = (std::max)(3, static_cast<int>(metrics.tmHeight) / 5);
+    return layout;
 }
 
 const wchar_t* DeviceBatteryPlugin::GetTooltipInfo()

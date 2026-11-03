@@ -18,6 +18,7 @@ max_heartbeat_age_seconds=15
 item_count=3
 trailing_spacer=1
 show_charging_marker=0
+align_columns=0
 [device0]
 source=Razer
 label_text=雷蛇
@@ -30,6 +31,10 @@ label_text=MIC
 ```
 
 重启 TrafficMonitor，在显示项目中启用三个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`，原项目 ID 保留。
+
+八爪鱼 6 使用 `item_count=4`、`trailing_spacer=0`，新增 `[device3] source=Flydigi` 和 `label_text=手柄`。启用 `Device24GBattery_4`，紧接 MIC 排列。它直接占用原来的空白下行，后面的硬件项目索引不变；任务栏显示为两列“雷蛇 / AE7”和“MIC / 手柄”。手柄配色为浅灰白 `#DCE6F1`。
+
+设置 `align_columns=1` 后，四项电量按当前实际字体测量统一的标签列和数值列，不再依赖细空格对齐。数值列测量 0%–100% 的最大宽度；即使使用比例字体，100% 也不会改变列宽。绘制会限制在自身矩形内，并保留列间距。这时标签从本插件的 `label_text` 设置读取，主程序的显示文本空格补齐不参与绘制；默认 0 保留原主程序绘制方式。
 
 双行任务栏中，当 MIC 是最后一个单独项目时，TrafficMonitor 会把标签和数值拆成上下两行。可选 `trailing_spacer=1` 会增加空白项目 `Device24GBatterySpacer`，在显示项目中启用并紧接 MIC 排列，便能让 MIC 的标签/数值显示在同一行，下一行保持空白。空白项目不请求设备数据，也不占文本宽度；默认关闭以兼容旧配置。
 
@@ -46,11 +51,13 @@ label_text=MIC
 | 独显功耗（无前缀） | 独显温度（无前缀） |
 | 固态1温度 | 固态2温度 |
 | 雷蛇电量 | AE7 电量 |
-| MIC 电量 | 空白 |
+| MIC 电量 | 手柄电量（未配置时保留空白） |
 
 只在“雷蛇/AE7”标签前留一处设备组间距，MIC 与两台鼠标采用正常列间距。CPU 与独显的功耗、温度标签在 `config.ini` 的 `[plugin_display_str_taskbar_window]` 对应项目设为空字符串。新增占位项目后，手工保存的全局索引与配色需将后续 HardwareMonitor 项目后移一位。
 
 整组右移只使用用户配置 `[task_bar] window_offset_left`，不修改定位代码。摄氏度保持与数值相同字号，HardwareMonitor.ini 的温度项目使用 `unit = " °C"`（单位前为 U+2009 细空格）略微拉开间距。CPU 使用率用整数百分比，项目间距设为 2；雷蛇/AE7 标签按本机字体宽度对齐。
+
+副屏任务栏默认预留 88 像素时钟区域，正的 `window_offset_left` 会吃掉这段空间。本机现在使用 16 像素偏移，右侧仍保留约 70 像素；不要为了靠右而把偏移调大到覆盖时钟。
 
 `show_charging_marker=0` 会省去电量数字后的 `+` 及其预留宽度，完整保留 0%–100% 和 `--`；充电信息仍在提示中显示。默认 1 保持旧的 `77%+` 行为。
 

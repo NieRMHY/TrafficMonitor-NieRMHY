@@ -23,6 +23,10 @@ public:
     const wchar_t* GetItemLableText() const override;
     const wchar_t* GetItemValueText() const override;
     const wchar_t* GetItemValueSampleText() const override;
+    bool IsCustomDraw() const override;
+    int GetItemWidth() const override { return 100; }
+    int GetItemWidthEx(void* dc) const override;
+    void DrawItem(void* dc, int x, int y, int w, int h, bool darkMode) override;
 private:
     int index_{};
     std::wstring id_{L"Device24GBattery"};

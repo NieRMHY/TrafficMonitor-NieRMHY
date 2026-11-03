@@ -34,6 +34,56 @@ void SetTime(const std::wstring& path, FILETIME time) {
     Check(SetFileTime(file, nullptr, nullptr, &time) != 0, "Set fixture time"); CloseHandle(file);
 }
 const std::string devices = R"([{"id":"ae7","name":"AE7","source":"Dareu","battery":100,"isSleeping":true,"status":"offline"},{"id":"cobra","name":"雷蛇 Cobra","source":"Razer","battery":51,"isShownInTray":true},{"id":"mic","name":"PD200W","source":"Maono","battery":60}])";
+void CheckBatteryDrawing(ITMPlugin* plugin) {
+    for (int fontHeight : {16,24,32}) {
+        HDC dc=CreateCompatibleDC(nullptr);
+        HFONT font=CreateFontW(-fontHeight,0,0,0,FW_BOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,NONANTIALIASED_QUALITY,DEFAULT_PITCH,L"Microsoft YaHei");
+        HGDIOBJ oldFont=SelectObject(dc,font);
+        const int width=plugin->GetItem(0)->GetItemWidthEx(dc), lineHeight=fontHeight+10;
+        Check(width>0,"Measure battery cell using the actual host font");
+        for(int item=1;item<4;++item)Check(plugin->GetItem(item)->GetItemWidthEx(dc)==width,"All battery rows reserve identical label/value columns");
+        const int canvasWidth=2*width+24,canvasHeight=2*lineHeight+8;
+        BITMAPINFO bitmapInfo{};bitmapInfo.bmiHeader.biSize=sizeof(BITMAPINFOHEADER);
+        bitmapInfo.bmiHeader.biWidth=canvasWidth;bitmapInfo.bmiHeader.biHeight=-canvasHeight;
+        bitmapInfo.bmiHeader.biPlanes=1;bitmapInfo.bmiHeader.biBitCount=32;bitmapInfo.bmiHeader.biCompression=BI_RGB;
+        void* rawPixels=nullptr;HBITMAP bitmap=CreateDIBSection(dc,&bitmapInfo,DIB_RGB_COLORS,&rawPixels,nullptr,0);
+        HGDIOBJ oldBitmap=SelectObject(dc,bitmap);auto* pixels=static_cast<DWORD*>(rawPixels);
+        std::fill(pixels,pixels+canvasWidth*canvasHeight,0);
+        plugin->OnExtenedInfo(ITMPlugin::EI_LABEL_TEXT_COLOR,L"255");
+        plugin->OnExtenedInfo(ITMPlugin::EI_VALUE_TEXT_COLOR,L"65280");
+        const COLORREF original=SetTextColor(dc,RGB(10,20,30));
+        int firstValueX=-1;
+        for(int item=0;item<4;++item){
+            const int x=8+(item/2)*(width+8),y=4+(item%2)*lineHeight;
+            plugin->GetItem(item)->DrawItem(dc,x,y,width,lineHeight,true);
+            GdiFlush();int minimum=width,maximum=-1;
+            for(int py=y;py<y+lineHeight;++py)for(int px=x;px<x+width;++px)
+                if((pixels[py*canvasWidth+px]&0xFFFFFF)==0x00FF00){minimum=(std::min)(minimum,px-x);maximum=(std::max)(maximum,px-x);}
+            Check(maximum>=minimum,"Battery value is actually rendered");
+            if(firstValueX<0)firstValueX=minimum;
+            Check(minimum==firstValueX,"100 percent starts at the same pixel for mouse, mic and gamepad");
+            Check(maximum<width-2,"100 percent preserves a trailing gap inside its own cell");
+        }
+        Check(GetTextColor(dc)==RGB(10,20,30),"Plugin restores the host drawing context");SetTextColor(dc,original);
+        bool outsideClean=true;
+        for(int y=0;y<canvasHeight;++y)for(int x=0;x<canvasWidth;++x){
+            const bool inside=(x>=8&&x<8+width||x>=16+width&&x<16+2*width)&&y>=4&&y<4+2*lineHeight;
+            if(!inside&&(pixels[y*canvasWidth+x]&0xFFFFFF)!=0)outsideClean=false;
+        }
+        Check(outsideClean,"Battery drawing cannot enter the adjacent column or clock area");
+        if(fontHeight==16){
+            const wchar_t* colors[]={L"7915580",L"12753652",L"5551359",L"15853276"};
+            std::fill(pixels,pixels+canvasWidth*canvasHeight,0x22252B);
+            for(int item=0;item<4;++item){plugin->OnExtenedInfo(ITMPlugin::EI_LABEL_TEXT_COLOR,colors[item]);plugin->OnExtenedInfo(ITMPlugin::EI_VALUE_TEXT_COLOR,colors[item]);
+                plugin->GetItem(item)->DrawItem(dc,8+(item/2)*(width+8),4+(item%2)*lineHeight,width,lineHeight,true);}
+            GdiFlush();BITMAPFILEHEADER header{};header.bfType=0x4D42;header.bfOffBits=sizeof(header)+sizeof(BITMAPINFOHEADER);
+            header.bfSize=header.bfOffBits+canvasWidth*canvasHeight*4;FILE* file=nullptr;
+            if(fopen_s(&file,"battery-layout-preview.bmp","wb")==0){fwrite(&header,sizeof(header),1,file);fwrite(&bitmapInfo.bmiHeader,sizeof(BITMAPINFOHEADER),1,file);fwrite(pixels,4,canvasWidth*canvasHeight,file);fclose(file);}
+        }
+        SelectObject(dc,oldBitmap);DeleteObject(bitmap);SelectObject(dc,oldFont);DeleteObject(font);DeleteDC(dc);
+    }
+}
 }
 int wmain(int argc, wchar_t** argv) {
     if (argc == 3 && std::wstring(argv[1]) == L"--live") {
@@ -183,6 +233,25 @@ int wmain(int argc, wchar_t** argv) {
         Check(GetFileAttributesExW(diagnostic.c_str(), GetFileExInfoStandard, &after) != 0 &&
             CompareFileTime(&before.ftLastWriteTime, &after.ftLastWriteTime) == 0, "Diagnostics stop without restarting the host");
         DeleteFileW(diagnostic.c_str());
+        Check(WritePrivateProfileStringW(L"display", L"item_count", L"4", dllIni.c_str()) != 0, "Add fourth device");
+        Check(WritePrivateProfileStringW(L"display", L"align_columns", L"1", dllIni.c_str()) != 0, "Enable fixed battery column geometry");
+        Check(WritePrivateProfileStringW(L"device2", L"label_text", L"MIC", dllIni.c_str()) != 0, "Use the compact microphone label");
+        Check(WritePrivateProfileStringW(L"device3", L"source", L"Flydigi", dllIni.c_str()) != 0, "Select gamepad by source");
+        Check(WritePrivateProfileStringW(L"device3", L"label_text", L"手柄", dllIni.c_str()) != 0, "Configure short gamepad label");
+        const std::string fourDevices=R"([{"source":"Razer","battery":100},{"source":"Dareu","battery":100},{"source":"Maono","battery":100},{"source":"Flydigi","battery":100}])";
+        WriteJson(snapshot,fourDevices);plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR,dir.c_str());plugin->DataRequired();
+        Check(plugin->GetItem(3) && std::wstring(plugin->GetItem(3)->GetItemId()) == L"Device24GBattery_4" && plugin->GetItem(4)==nullptr,
+            "Gamepad occupies the old empty lower row without moving hardware items");
+        Check(std::wstring(plugin->GetItem(3)->GetItemValueText()) == L"100%", "Gamepad receives its own battery value");
+        Check(plugin->GetItem(0)->IsCustomDraw() && plugin->GetItem(3)->IsCustomDraw(), "Opt-in battery layout uses measured columns instead of whitespace padding");
+        CheckBatteryDrawing(plugin);
+        WriteJson(snapshot,R"([{"source":"Razer","battery":9},{"source":"Dareu","battery":100},{"source":"Maono","battery":59},{"source":"Flydigi","battery":null}])");
+        plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR,dir.c_str());plugin->DataRequired();
+        Check(std::wstring(plugin->GetItem(0)->GetItemValueText())==L"9%"&&std::wstring(plugin->GetItem(1)->GetItemValueText())==L"100%"&&
+            std::wstring(plugin->GetItem(2)->GetItemValueText())==L"59%"&&std::wstring(plugin->GetItem(3)->GetItemValueText())==L"--","Mixed-width values and unknown gamepad remain independent");
+        Check(WritePrivateProfileStringW(L"display",L"align_columns",L"0",dllIni.c_str())!=0,"Disable optional battery layout");
+        plugin->OnExtenedInfo(ITMPlugin::EI_CONFIG_DIR,dir.c_str());
+        Check(!plugin->GetItem(0)->IsCustomDraw(),"Original host-rendered layout remains the default");
         std::cout << "PASS: " << checks << " battery integration checks\n";
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';
