@@ -817,15 +817,19 @@ const std::wstring& DeviceBatteryManager::GetDisplayText() const
         std::lock_guard<std::mutex> guard(textMutex_);
         copy = displayText_;
     }
-    if (config_.diagnostics) WriteDiagnostic(L"render", copy, GetTooltipText());
     return copy;
+}
+
+void DeviceBatteryManager::RecordRenderedValue(const std::wstring& value) const
+{
+    if (config_.diagnostics) WriteDiagnostic(L"render", value, GetTooltipText());
 }
 
 void DeviceBatteryManager::WriteDiagnostic(const wchar_t* stage, const std::wstring& value, const std::wstring& detail) const
 {
     if (!config_.diagnostics || GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) == 0) return;
     const std::wstring path = configPath_ + L"." + std::to_wstring(itemIndex_) + L"." + stage + L".txt";
-    const std::wstring text = L"\xfeffHostPID=" + std::to_wstring(GetCurrentProcessId()) + L"\r\nConfig=" + configPath_ +
+    const std::wstring text = L"\xfeffHostPID=" + std::to_wstring(GetCurrentProcessId()) + L"\r\nThreadID=" + std::to_wstring(GetCurrentThreadId()) + L"\r\nConfig=" + configPath_ +
         L"\r\nSnapshot=" + config_.snapshotFile + L"\r\nSource=" + config_.source + L"\r\nValue=" + value + L"\r\nStatus=" + detail + L"\r\n";
     HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
         nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);

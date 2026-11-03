@@ -25,7 +25,10 @@ const wchar_t* DeviceBatteryItem::GetItemLableText() const
 
 const wchar_t* DeviceBatteryItem::GetItemValueText() const
 {
-    return DeviceBatteryManager::Instance(index_).GetDisplayText().c_str();
+    auto& manager = DeviceBatteryManager::Instance(index_);
+    const auto& value = manager.GetDisplayText();
+    manager.RecordRenderedValue(value);
+    return value.c_str();
 }
 
 const wchar_t* DeviceBatteryItem::GetItemValueSampleText() const

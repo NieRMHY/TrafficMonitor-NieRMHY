@@ -53,6 +53,7 @@ public:
     const std::wstring& GetTooltipText() const;
     const std::wstring& GetLabelText() const;
     bool ShowChargingMarker() const { return config_.showChargingMarker; }
+    void RecordRenderedValue(const std::wstring& value) const;
     static bool ParseAndSelectDevice(const std::string& jsonText, const DeviceBatteryConfig& config, DeviceBatteryInfo& selectedInfo, std::wstring& errorText);
 
 private:
