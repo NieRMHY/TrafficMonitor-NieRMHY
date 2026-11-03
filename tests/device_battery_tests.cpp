@@ -73,7 +73,7 @@ void CheckBatteryDrawing(ITMPlugin* plugin) {
         }
         Check(outsideClean,"Battery drawing cannot enter the adjacent column or clock area");
         if(fontHeight==16){
-            const wchar_t* colors[]={L"7915580",L"12753652",L"5551359",L"15853276"};
+            const wchar_t* colors[]={L"7915580",L"12753652",L"5551359",L"13885056"};
             std::fill(pixels,pixels+canvasWidth*canvasHeight,0x22252B);
             for(int item=0;item<4;++item){plugin->OnExtenedInfo(ITMPlugin::EI_LABEL_TEXT_COLOR,colors[item]);plugin->OnExtenedInfo(ITMPlugin::EI_VALUE_TEXT_COLOR,colors[item]);
                 plugin->GetItem(item)->DrawItem(dc,8+(item/2)*(width+8),4+(item%2)*lineHeight,width,lineHeight,true);}

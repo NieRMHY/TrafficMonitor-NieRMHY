@@ -32,7 +32,7 @@ label_text=MIC
 
 重启 TrafficMonitor，在显示项目中启用三个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`，原项目 ID 保留。
 
-八爪鱼 6 使用 `item_count=4`、`trailing_spacer=0`，新增 `[device3] source=Flydigi` 和 `label_text=手柄`。启用 `Device24GBattery_4`，紧接 MIC 排列。它直接占用原来的空白下行，后面的硬件项目索引不变；任务栏显示为两列“雷蛇 / AE7”和“MIC / 手柄”。手柄配色为浅灰白 `#DCE6F1`。
+八爪鱼 6 使用 `item_count=4`、`trailing_spacer=0`，新增 `[device3] source=Flydigi` 和 `label_text=手柄`。启用 `Device24GBattery_4`，紧接 MIC 排列。它直接占用原来的空白下行，后面的硬件项目索引不变；任务栏显示为两列“雷蛇 / AE7”和“MIC / 手柄”。手柄配色为淡青绿 `#80DED3`。
 
 设置 `align_columns=1` 后，四项电量按当前实际字体测量统一的标签列和数值列，不再依赖细空格对齐。数值列测量 0%–100% 的最大宽度；即使使用比例字体，100% 也不会改变列宽。绘制会限制在自身矩形内，并保留列间距。这时标签从本插件的 `label_text` 设置读取，主程序的显示文本空格补齐不参与绘制；默认 0 保留原主程序绘制方式。
 
