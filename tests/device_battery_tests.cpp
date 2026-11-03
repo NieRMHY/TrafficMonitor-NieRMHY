@@ -132,6 +132,18 @@ int wmain(int argc, wchar_t** argv) {
         manager.LoadConfig(dir); manager.RefreshIfNeeded(); Check(manager.GetDisplayText() == L"--", "PID reuse cannot validate an older snapshot");
         WriteJson(snapshot, devices); manager.LoadConfig(dir); manager.RefreshIfNeeded(); Check(manager.GetDisplayText()==L"51%", "Recovers after valid publication");
         DeleteFileW(snapshot.c_str()); manager.LoadConfig(dir);manager.RefreshIfNeeded();Check(manager.GetDisplayText()==L"--", "Provider removal clears stale display");
+        WriteJson(snapshot, devices);
+        Sleep(550); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"51%", "Previously missing snapshot recovers without reloading plugin configuration");
+        WriteJson(snapshot, R"([{"source":"Razer","battery":88,"status":"online"}])");
+        Sleep(550); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"88%", "Existing reader follows subsequent exported battery changes");
+        WriteJson(snapshot, devices, 1073741823);
+        Sleep(550); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"--" && manager.GetTooltipText().find(L"publisher") != std::wstring::npos, "Publisher failure has a useful diagnostic reason");
+        WriteJson(snapshot, devices);
+        Sleep(550); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"51%", "Reader recovers from publisher restart without plugin restart");
         std::cout << "PASS: " << checks << " battery integration checks\n";
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';

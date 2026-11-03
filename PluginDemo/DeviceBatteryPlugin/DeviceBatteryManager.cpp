@@ -446,6 +446,7 @@ std::wstring DeviceBatteryManager::BuildConfigPath(const std::wstring& configDir
 
 void DeviceBatteryManager::LoadConfig(const std::wstring& configDir, int index)
 {
+    itemIndex_ = index;
     configPath_ = BuildConfigPath(configDir);
     config_ = DeviceBatteryConfig{};
     lastRequestTick_ = 0;
@@ -463,6 +464,7 @@ void DeviceBatteryManager::LoadConfig(const std::wstring& configDir, int index)
     config_.refreshIntervalMs = GetPrivateProfileIntW(L"api", L"refresh_interval_ms", 3000, configPath_.c_str());
     config_.preferTrayDevice = GetPrivateProfileIntW(L"api", L"prefer_tray_device", 1, configPath_.c_str()) != 0;
     config_.showChargingMarker = GetPrivateProfileIntW(L"display", L"show_charging_marker", 1, configPath_.c_str()) != 0;
+    config_.diagnostics = GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) != 0;
 
     GetPrivateProfileStringW(L"api", L"token", L"", buffer, static_cast<DWORD>(std::size(buffer)), configPath_.c_str());
     config_.token = Trim(buffer);
@@ -513,7 +515,7 @@ bool DeviceBatteryManager::ReadSnapshotFile(std::string& jsonText) const
 {
     HANDLE file = CreateFileW(config_.snapshotFile.c_str(), GENERIC_READ,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return false;
+    if (file == INVALID_HANDLE_VALUE) { sourceError_ = L"Open snapshot failed: Win32 " + std::to_wstring(GetLastError()); return false; }
     LARGE_INTEGER size{};
     FILETIME modified{}, now{};
     bool ok = GetFileSizeEx(file, &size) && size.QuadPart > 0 && size.QuadPart <= 262144 &&
@@ -528,21 +530,23 @@ bool DeviceBatteryManager::ReadSnapshotFile(std::string& jsonText) const
         ok = ReadFile(file, &jsonText[0], static_cast<DWORD>(jsonText.size()), &read, nullptr) && read == jsonText.size();
     }
     CloseHandle(file);
-    if (!ok) return false;
+    if (!ok) { sourceError_ = L"Snapshot read failed, size invalid, or file expired"; return false; }
     int pid = 0;
     bool isNull = false;
-    if (!GetJsonInt(jsonText, "producerPid", pid, isNull) || isNull || pid <= 0) return false;
+    if (!GetJsonInt(jsonText, "producerPid", pid, isNull) || isNull || pid <= 0) { sourceError_ = L"Snapshot publisher PID is invalid"; return false; }
     HANDLE producer = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
-    if (producer == nullptr) return false;
+    if (producer == nullptr) { sourceError_ = L"Open publisher " + std::to_wstring(pid) + L" failed: Win32 " + std::to_wstring(GetLastError()); return false; }
     FILETIME created{}, exited{}, kernel{}, user{};
     ok = WaitForSingleObject(producer, 0) == WAIT_TIMEOUT &&
         GetProcessTimes(producer, &created, &exited, &kernel, &user) && ticks(created) <= ticks(modified);
     CloseHandle(producer);
+    if (!ok) sourceError_ = L"Snapshot publisher stopped or snapshot predates this process";
     return ok;
 }
 
 bool DeviceBatteryManager::FetchStatusJson(std::string& jsonText) const
 {
+    sourceError_.clear();
     if (!config_.snapshotFile.empty()) return ReadSnapshotFile(jsonText);
     HINTERNET session = WinHttpOpen(L"TrafficMonitorDeviceBatteryPlugin/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session == nullptr)
@@ -789,7 +793,8 @@ void DeviceBatteryManager::RefreshIfNeeded()
     std::string jsonText;
     if (!FetchStatusJson(jsonText))
     {
-        SetUnavailable(L"Battery source unavailable, expired, or publisher stopped");
+        SetUnavailable(sourceError_.empty() ? L"Battery source unavailable" : sourceError_);
+        WriteDiagnostic(L"poll", GetDisplayText(), GetTooltipText());
         return;
     }
 
@@ -798,17 +803,36 @@ void DeviceBatteryManager::RefreshIfNeeded()
     if (!ParseAndSelectDevice(jsonText, config_, selectedInfo, errorText))
     {
         SetUnavailable(L"Battery data: " + errorText);
+        WriteDiagnostic(L"poll", GetDisplayText(), GetTooltipText());
         return;
     }
     UpdateDisplay(selectedInfo);
+    WriteDiagnostic(L"poll", GetDisplayText(), GetTooltipText());
 }
 
 const std::wstring& DeviceBatteryManager::GetDisplayText() const
 {
     thread_local std::wstring copy;
-    std::lock_guard<std::mutex> guard(textMutex_);
-    copy = displayText_;
+    {
+        std::lock_guard<std::mutex> guard(textMutex_);
+        copy = displayText_;
+    }
+    if (config_.diagnostics) WriteDiagnostic(L"render", copy, GetTooltipText());
     return copy;
+}
+
+void DeviceBatteryManager::WriteDiagnostic(const wchar_t* stage, const std::wstring& value, const std::wstring& detail) const
+{
+    if (!config_.diagnostics || GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) == 0) return;
+    const std::wstring path = configPath_ + L"." + std::to_wstring(itemIndex_) + L"." + stage + L".txt";
+    const std::wstring text = L"\xfeffHostPID=" + std::to_wstring(GetCurrentProcessId()) + L"\r\nConfig=" + configPath_ +
+        L"\r\nSnapshot=" + config_.snapshotFile + L"\r\nSource=" + config_.source + L"\r\nValue=" + value + L"\r\nStatus=" + detail + L"\r\n";
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return;
+    DWORD written = 0;
+    WriteFile(file, text.data(), static_cast<DWORD>(text.size() * sizeof(wchar_t)), &written, nullptr);
+    CloseHandle(file);
 }
 
 const std::wstring& DeviceBatteryManager::GetTooltipText() const

@@ -18,6 +18,7 @@ struct DeviceBatteryConfig
     int refreshIntervalMs{ 3000 };
     bool preferTrayDevice{ true };
     bool showChargingMarker{ true };
+    bool diagnostics{ false };
     std::wstring source{};
     std::wstring snapshotFile{};
     int maxSnapshotAgeSeconds{ 900 };
@@ -60,6 +61,7 @@ private:
     bool FetchStatusJson(std::string& jsonText) const;
     bool ReadSnapshotFile(std::string& jsonText) const;
     void SetUnavailable(const std::wstring& reason);
+    void WriteDiagnostic(const wchar_t* stage, const std::wstring& value, const std::wstring& detail) const;
 
     void UpdateDisplay(const DeviceBatteryInfo& selectedInfo);
     static std::wstring GetModuleFileNameOnly();
@@ -72,4 +74,6 @@ private:
     std::wstring tooltipText_{ L"Device battery: --" };
     std::uint64_t lastRequestTick_{ 0 };
     mutable std::mutex textMutex_;
+    mutable std::wstring sourceError_;
+    int itemIndex_{};
 };

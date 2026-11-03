@@ -38,7 +38,7 @@ const wchar_t* DeviceBatteryPlugin::GetInfo(PluginInfoIndex index)
     case TMI_COPYRIGHT:
         return L"Copyright (C) 2026";
     case TMI_VERSION:
-        return L"1.1.1";
+        return L"1.1.2";
     case TMI_URL:
         return L"https://github.com/zhongyang219/TrafficMonitor";
     default:
