@@ -3,6 +3,7 @@
 #include "PluginInterface.h"
 #include <iostream>
 #include <stdexcept>
+#include <cstdio>
 
 namespace {
 int checks = 0;
@@ -16,6 +17,16 @@ void Write(const std::wstring& path, const void* bytes, DWORD size) {
 void WriteJson(const std::wstring& path, const std::string& body, DWORD pid = GetCurrentProcessId()) {
     std::string json = "{\"producerPid\":" + std::to_string(pid) + ",\"data\":{\"devices\":" + body + "}}";
     Write(path, json.data(), static_cast<DWORD>(json.size()));
+}
+void WriteHeartbeat(const std::wstring& path, const std::string& observed, const std::string& body) {
+    std::string json = "{\"producerPid\":" + std::to_string(GetCurrentProcessId()) +
+        ",\"data\":{\"heartbeatIntervalMs\":3000,\"observedAtUtc\":\"" + observed + "\",\"devices\":" + body + "}}";
+    Write(path, json.data(), static_cast<DWORD>(json.size()));
+}
+std::string UtcText() {
+    SYSTEMTIME utc{}; GetSystemTime(&utc); char text[32]{};
+    sprintf_s(text, "%04u-%02u-%02uT%02u:%02u:%02uZ", utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond);
+    return text;
 }
 void SetTime(const std::wstring& path, FILETIME time) {
     HANDLE file = CreateFileW(path.c_str(), FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, nullptr, OPEN_EXISTING, 0, nullptr);
@@ -144,6 +155,34 @@ int wmain(int argc, wchar_t** argv) {
         WriteJson(snapshot, devices);
         Sleep(550); manager.RefreshIfNeeded();
         Check(manager.GetDisplayText() == L"51%", "Reader recovers from publisher restart without plugin restart");
+        WriteHeartbeat(snapshot, "2000-01-01T00:00:00.0000000Z", devices);
+        manager.LoadConfig(dir); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"--" && manager.GetTooltipText().find(L"observations") != std::wstring::npos,
+            "A fresh heartbeat cannot make expired hardware observations current");
+        WriteHeartbeat(snapshot, "invalid", devices);
+        manager.LoadConfig(dir); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"--", "Malformed observation timestamps are unavailable");
+        WriteHeartbeat(snapshot, UtcText(), devices);
+        Sleep(550); manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"51%", "Fresh heartbeat and observations recover without reloading");
+        GetSystemTimeAsFileTime(&now); time.LowPart=now.dwLowDateTime;time.HighPart=now.dwHighDateTime;
+        time.QuadPart -= 20ULL*10000000ULL; past={time.LowPart,time.HighPart};SetTime(snapshot,past);
+        manager.LoadConfig(dir);manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"--" && manager.GetTooltipText().find(L"heartbeat expired") != std::wstring::npos,
+            "Stalled heartbeat is rejected before the hardware observation timeout");
+        WriteHeartbeat(snapshot, UtcText(), devices);
+        Sleep(550);manager.RefreshIfNeeded();
+        Check(manager.GetDisplayText() == L"51%", "Heartbeat restoration reconnects the existing reader");
+        Check(WritePrivateProfileStringW(L"api", L"diagnostics", L"1", exeIni.c_str()) != 0, "Enable diagnostics while running");
+        Sleep(550);manager.RefreshIfNeeded();
+        std::wstring diagnostic = exeIni + L".0.poll.txt";
+        WIN32_FILE_ATTRIBUTE_DATA before{}, after{};
+        Check(GetFileAttributesExW(diagnostic.c_str(), GetFileExInfoStandard, &before) != 0, "Diagnostics enable without restarting the host");
+        Check(WritePrivateProfileStringW(L"api", L"diagnostics", L"0", exeIni.c_str()) != 0, "Disable diagnostics while running");
+        Sleep(550);manager.RefreshIfNeeded();
+        Check(GetFileAttributesExW(diagnostic.c_str(), GetFileExInfoStandard, &after) != 0 &&
+            CompareFileTime(&before.ftLastWriteTime, &after.ftLastWriteTime) == 0, "Diagnostics stop without restarting the host");
+        DeleteFileW(diagnostic.c_str());
         std::cout << "PASS: " << checks << " battery integration checks\n";
     } catch (const std::exception& error) {
         std::cerr << "FAIL: " << error.what() << '\n';

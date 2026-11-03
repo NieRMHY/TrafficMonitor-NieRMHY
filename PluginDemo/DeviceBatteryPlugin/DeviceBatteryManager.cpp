@@ -211,6 +211,23 @@ bool GetJsonBool(const std::string& objectText, const std::string& key, bool& ou
     return false;
 }
 
+bool ParseUtcTimestamp(const std::wstring& text, FILETIME& time)
+{
+    if (text.size() < 20 || text.size() > 28 || text.back() != L'Z' ||
+        text[4] != L'-' || text[7] != L'-' || text[10] != L'T' || text[13] != L':' || text[16] != L':') return false;
+    for (size_t i = 0; i < 19; ++i)
+        if (i != 4 && i != 7 && i != 10 && i != 13 && i != 16 && (text[i] < L'0' || text[i] > L'9')) return false;
+    if (text.size() > 20)
+    {
+        if (text[19] != L'.' || text.size() < 22) return false;
+        for (size_t i = 20; i + 1 < text.size(); ++i) if (text[i] < L'0' || text[i] > L'9') return false;
+    }
+    SYSTEMTIME utc{};
+    if (swscanf_s(text.c_str(), L"%4hu-%2hu-%2huT%2hu:%2hu:%2hu", &utc.wYear, &utc.wMonth,
+        &utc.wDay, &utc.wHour, &utc.wMinute, &utc.wSecond) != 6) return false;
+    return SystemTimeToFileTime(&utc, &time) != 0;
+}
+
 bool ExtractDevicesArray(const std::string& jsonText, std::string& devicesArray)
 {
     const std::string marker = "\"devices\"";
@@ -465,6 +482,7 @@ void DeviceBatteryManager::LoadConfig(const std::wstring& configDir, int index)
     config_.preferTrayDevice = GetPrivateProfileIntW(L"api", L"prefer_tray_device", 1, configPath_.c_str()) != 0;
     config_.showChargingMarker = GetPrivateProfileIntW(L"display", L"show_charging_marker", 1, configPath_.c_str()) != 0;
     config_.diagnostics = GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) != 0;
+    diagnosticsEnabled_.store(config_.diagnostics);
 
     GetPrivateProfileStringW(L"api", L"token", L"", buffer, static_cast<DWORD>(std::size(buffer)), configPath_.c_str());
     config_.token = Trim(buffer);
@@ -499,6 +517,8 @@ void DeviceBatteryManager::LoadConfig(const std::wstring& configDir, int index)
     }
     config_.maxSnapshotAgeSeconds = (std::max)(30, (std::min)(3600,
         static_cast<int>(GetPrivateProfileIntW(L"api", L"max_snapshot_age_seconds", 900, configPath_.c_str()))));
+    config_.maxHeartbeatAgeSeconds = (std::max)(5, (std::min)(300,
+        static_cast<int>(GetPrivateProfileIntW(L"api", L"max_heartbeat_age_seconds", 15, configPath_.c_str()))));
 
     const std::wstring section = L"device" + std::to_wstring(index);
     auto readSelection = [&](const wchar_t* key, std::wstring& value) {
@@ -531,6 +551,26 @@ bool DeviceBatteryManager::ReadSnapshotFile(std::string& jsonText) const
     }
     CloseHandle(file);
     if (!ok) { sourceError_ = L"Snapshot read failed, size invalid, or file expired"; return false; }
+    std::string raw;
+    if (ExtractJsonValueRaw(jsonText, "heartbeatIntervalMs", raw))
+    {
+        int interval = 0;
+        bool isNull = false;
+        if (!GetJsonInt(jsonText, "heartbeatIntervalMs", interval, isNull) || isNull || interval <= 0 || interval > 60000)
+        { sourceError_ = L"Publisher heartbeat interval is invalid"; return false; }
+        if (ticks(now) > ticks(modified) + static_cast<ULONGLONG>(config_.maxHeartbeatAgeSeconds) * 10000000ULL)
+        { sourceError_ = L"Publisher heartbeat expired"; return false; }
+    }
+    if (ExtractJsonValueRaw(jsonText, "observedAtUtc", raw))
+    {
+        std::wstring observation;
+        bool isNull = false;
+        FILETIME observed{};
+        if (!GetJsonString(jsonText, "observedAtUtc", observation, isNull) || isNull || !ParseUtcTimestamp(observation, observed))
+        { sourceError_ = L"Battery observations timestamp is unavailable or invalid"; return false; }
+        if (ticks(now) > ticks(observed) + static_cast<ULONGLONG>(config_.maxSnapshotAgeSeconds) * 10000000ULL)
+        { sourceError_ = L"Battery observations expired"; return false; }
+    }
     int pid = 0;
     bool isNull = false;
     if (!GetJsonInt(jsonText, "producerPid", pid, isNull) || isNull || pid <= 0) { sourceError_ = L"Snapshot publisher PID is invalid"; return false; }
@@ -789,6 +829,7 @@ void DeviceBatteryManager::RefreshIfNeeded()
         }
     }
     lastRequestTick_ = nowTick;
+    diagnosticsEnabled_.store(GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) != 0);
 
     std::string jsonText;
     if (!FetchStatusJson(jsonText))
@@ -822,12 +863,12 @@ const std::wstring& DeviceBatteryManager::GetDisplayText() const
 
 void DeviceBatteryManager::RecordRenderedValue(const std::wstring& value) const
 {
-    if (config_.diagnostics) WriteDiagnostic(L"render", value, GetTooltipText());
+    if (diagnosticsEnabled_.load()) WriteDiagnostic(L"render", value, GetTooltipText());
 }
 
 void DeviceBatteryManager::WriteDiagnostic(const wchar_t* stage, const std::wstring& value, const std::wstring& detail) const
 {
-    if (!config_.diagnostics || GetPrivateProfileIntW(L"api", L"diagnostics", 0, configPath_.c_str()) == 0) return;
+    if (!diagnosticsEnabled_.load()) return;
     const std::wstring path = configPath_ + L"." + std::to_wstring(itemIndex_) + L"." + stage + L".txt";
     const std::wstring text = L"\xfeffHostPID=" + std::to_wstring(GetCurrentProcessId()) + L"\r\nThreadID=" + std::to_wstring(GetCurrentThreadId()) + L"\r\nConfig=" + configPath_ +
         L"\r\nSnapshot=" + config_.snapshotFile + L"\r\nSource=" + config_.source + L"\r\nValue=" + value + L"\r\nStatus=" + detail + L"\r\n";

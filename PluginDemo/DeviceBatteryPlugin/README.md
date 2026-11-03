@@ -4,7 +4,7 @@
 
 ## FerrisPulse 配置
 
-FerrisPulse 需要包含 `BatterySnapshotExporter`，并在当前用户 `HKCU\Software\RazerBatteryTray` 设置 DWORD `ExportBatteryStatus=1`。正常轮询后生成 `%LOCALAPPDATA%\FerrisPulse\battery-status.json`。
+FerrisPulse 需要包含 `BatterySnapshotExporter`，并在它实际运行的 Windows 用户上下文的 `HKCU\Software\FerrisPulse` 设置 DWORD `ExportBatteryStatus=1`（新键缺失时兼容旧 `RazerBatteryTray` 键）。应用每 3 秒生成 `%LOCALAPPDATA%\FerrisPulse\battery-status.json` 心跳，硬件查询完成后立即更新其中的观察结果；首次查询前保持未知，不额外读取 HID。
 
 在 TrafficMonitor 的配置目录 `plugins\DeviceBatteryPlugin.dll.ini` 写入以下内容。**包含中文时请保存为 UTF-16 LE BOM**，与 Windows Profile API 一致：
 
@@ -13,6 +13,7 @@ FerrisPulse 需要包含 `BatterySnapshotExporter`，并在当前用户 `HKCU\So
 snapshot_file=%LOCALAPPDATA%\FerrisPulse\battery-status.json
 refresh_interval_ms=3000
 max_snapshot_age_seconds=900
+max_heartbeat_age_seconds=15
 [display]
 item_count=3
 trailing_spacer=1
@@ -65,13 +66,15 @@ NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用
 
 选择优先级为 `device_id`、`device_name`、`source`，显式选择不存在时显示 `--`，不会退回另一台设备。多个同品牌设备请用快照内 `id` 配置 `device_id`。未指定选择条件时保留旧的托盘设备优先策略。
 
-`77%+` 是确认充电。设备休眠/离线、快照过期、生产进程退出、数据未知或文件不可读时显示 `--`，不把历史电量显示成当前数据。文件最大 256 KiB；生产 PID 必须存活且进程创建时间不得晚于文件时间。读取每项时不会触碰 HID；实际更新频率沿用 FerrisPulse 的硬件轮询设置。900 秒过期阈值可设为 30–3600 秒。
+`77%+` 是确认充电。设备休眠/离线、快照过期、生产进程退出、数据未知或文件不可读时显示 `--`，不把历史电量显示成当前数据。文件最大 256 KiB；生产 PID 必须存活且进程创建时间不得晚于文件时间。插件每 3 秒重新尝试，不缓存失败的文件句柄或旧生产 PID，因此任意启动顺序和发布者重启都可恢复。
+
+新版快照的 `generatedAtUtc` 随心跳更新，`observedAtUtc` 只随硬件查询更新。默认心跳 15 秒失效（可设 5–300 秒），实际观察 900 秒失效（可设 30–3600 秒）。持续心跳不能掩盖卡住的硬件查询。无心跳字段的旧版快照仍按原文件时效检查；读取不会触碰 HID。
 
 ## 排查运行实例与独立测试不一致
 
-`--` 的提示现在包含文件打开失败、过期、发布进程无法访问等具体原因。临时设置 `[api] diagnostics=1` 后重启 TrafficMonitor，会在插件 INI 旁生成 `.0.poll.txt` / `.0.render.txt` 等诊断文件，分别记录实际读取和界面取值，包含宿主 PID、实际配置/快照路径与结果，不记录 API token。
+`--` 的提示包含文件打开失败、心跳或观察过期、发布进程无法访问等具体原因。临时设置 `[api] diagnostics=1`，下次读取时即可启用，无需重启 TrafficMonitor。插件 INI 旁生成 `.0.poll.txt` / `.0.render.txt` 等诊断文件，分别记录实际读取和界面取值，包含宿主 PID、实际配置/快照路径与结果，不记录 API token。
 
-应以正在显示任务栏的宿主 PID 的 `render` 记录或屏幕结果确认恢复；单独执行测试程序只验证新建读者，不能证明已经运行的任务栏使用了同一配置。完成排查后设 `diagnostics=0` 即停止写日志，无需重启；重新开启需重启。缺失文件恢复、后续数值变化和发布者重启均有不重载配置的回归测试。
+应以正常从桌面启动的发布者生成的快照和任务栏宿主 PID 的 `render` 记录或屏幕结果确认恢复；调试终端的注册表开关和独立测试不能代替实际应用验证。完成排查后设 `diagnostics=0`，下次读取时停止写日志，无需重启。缺失文件恢复、后续数值变化、发布者重启、心跳恢复及过期观察均有不重载配置的回归测试。
 
 ## 构建和测试
 

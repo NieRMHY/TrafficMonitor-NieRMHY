@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <atomic>
 
 struct DeviceBatteryConfig
 {
@@ -22,6 +23,7 @@ struct DeviceBatteryConfig
     std::wstring source{};
     std::wstring snapshotFile{};
     int maxSnapshotAgeSeconds{ 900 };
+    int maxHeartbeatAgeSeconds{ 15 };
 };
 
 struct DeviceBatteryInfo
@@ -77,4 +79,5 @@ private:
     mutable std::mutex textMutex_;
     mutable std::wstring sourceError_;
     int itemIndex_{};
+    std::atomic<bool> diagnosticsEnabled_{ false };
 };
