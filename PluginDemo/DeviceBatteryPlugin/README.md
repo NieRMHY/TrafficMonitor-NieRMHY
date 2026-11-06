@@ -15,10 +15,10 @@ refresh_interval_ms=3000
 max_snapshot_age_seconds=900
 max_heartbeat_age_seconds=15
 [display]
-item_count=3
-trailing_spacer=1
+item_count=4
+trailing_spacer=0
 show_charging_marker=0
-align_columns=0
+align_columns=1
 [device0]
 source=Razer
 label_text=雷蛇
@@ -28,11 +28,14 @@ label_text=AE7
 [device2]
 source=Maono
 label_text=MIC
+[device3]
+source=Flydigi
+label_text=手柄
 ```
 
-重启 TrafficMonitor，在显示项目中启用三个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`，原项目 ID 保留。
+重启 TrafficMonitor，在显示项目中启用四个电量项。项目 ID 依次为 `Device24GBattery`、`Device24GBattery_2`、`Device24GBattery_3`、`Device24GBattery_4`，原项目 ID 保留。
 
-八爪鱼 6 使用 `item_count=4`、`trailing_spacer=0`，新增 `[device3] source=Flydigi` 和 `label_text=手柄`。启用 `Device24GBattery_4`，紧接 MIC 排列。它直接占用原来的空白下行，后面的硬件项目索引不变；任务栏显示为两列“雷蛇 / AE7”和“MIC / 手柄”。手柄配色为淡青绿 `#80DED3`。
+上述四设备方案包含八爪鱼 6；将 `Device24GBattery_4` 紧接 MIC 排列。它直接占用原来的空白下行，后面的硬件项目索引不变；任务栏显示为两列“雷蛇 / AE7”和“MIC / 手柄”。手柄配色为淡青绿 `#80DED3`。仅需三台时设 `item_count=3`，需要 MIC 下方留空再设 `trailing_spacer=1`；配置缺省值仍保持旧行为。
 
 设置 `align_columns=1` 后，四项电量按当前实际字体测量统一的标签列和数值列，不再依赖细空格对齐。数值列测量 0%–100% 的最大宽度；即使使用比例字体，100% 也不会改变列宽。绘制会限制在自身矩形内，并保留列间距。这时标签从本插件的 `label_text` 设置读取，主程序的显示文本空格补齐不参与绘制；默认 0 保留原主程序绘制方式。
 
@@ -61,13 +64,14 @@ label_text=MIC
 
 `show_charging_marker=0` 会省去电量数字后的 `+` 及其预留宽度，完整保留 0%–100% 和 `--`；充电信息仍在提示中显示。默认 1 保持旧的 `77%+` 行为。
 
-NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用固定设备配色：
+NieRMHY 的任务栏配置将这四个项目放在固态温度后面，并使用固定设备配色：
 
 | 项目 | 标签 | RGB 颜色 |
 | --- | --- | --- |
 | Device24GBattery | 雷蛇 | 深绿 `#3CC878` |
 | Device24GBattery_2 | AE7 | 粉色 `#F49AC2` |
 | Device24GBattery_3 | MIC | 橙色 `#FFB454` |
+| Device24GBattery_4 | 手柄 | 淡青绿 `#80DED3` |
 
 这些颜色由 TrafficMonitor 的每项目颜色设置控制。FerrisPulse 自身使用按剩余电量变化的绿/黄/红规则，两边共享数值，显示配色分别设置。
 
@@ -91,6 +95,6 @@ NieRMHY 的任务栏配置将这三个项目放在固态温度后面，并使用
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_device_battery.ps1 -VCToolsRoot 'C:\path\to\VC\Tools\MSVC\version' -WindowsSdkRoot 'C:\Program Files (x86)\Windows Kits\10' -SdkVersion 10.0.22621.0
 ```
 
-输出在 `artifacts\DeviceBatteryPlugin`，脚本同时运行原生回归测试。覆盖三个独立项目、原插件 ABI、选择规则、空值/0%/异常值、中文 INI、充电/缓存提示、过期文件、死亡进程、PID 重用和恢复。用 `device_battery_tests.exe --live <插件配置目录>` 可读取真实快照并打印三个项目，便于部署前检查。
+输出在 `artifacts\DeviceBatteryPlugin`，脚本同时运行原生回归测试。覆盖独立设备项目、四设备固定宽度绘制、原插件 ABI、选择规则、空值/0%/异常值、中文 INI、充电/缓存提示、过期文件、死亡进程、PID 重用和恢复。用 `device_battery_tests.exe --live <插件配置目录>` 可读取真实快照，便于部署前检查；实际屏幕仍需核对宿主绘制诊断或界面。
 
 升级前备份原 DLL、插件 INI 及 TrafficMonitor 的 config.ini；停止 TrafficMonitor 后替换 DLL。新增项目会改变插件全局索引，已有手工配置的 item_order 和按项目颜色需要相应重排。
