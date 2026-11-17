@@ -1,5 +1,17 @@
-## 基于TrafficMonitor的个人开发版本
-## 项目源地址：https://github.com/zhongyang219/trafficmonitor
+# TrafficMonitor-NieRMHY
+
+## NieRMHY 独立维护版本
+
+本仓库由 NieRMHY 独立维护，用于 Windows 网速、硬件统计与多设备电量任务栏插件。GitHub 仓库独立管理，不使用 fork 关系，也不自动同步原项目。
+
+- 当前仓库：[NieRMHY/TrafficMonitor-NieRMHY](https://github.com/NieRMHY/TrafficMonitor-NieRMHY)。
+- 原项目：[zhongyang219/TrafficMonitor](https://github.com/zhongyang219/TrafficMonitor)，感谢原作者及贡献者。
+- 保留原项目提交历史、`LICENSE` 和作者版权信息；独立维护不改变已有许可要求。
+- 开发说明与项目规则见 `CLAUDE.md`、`AGENTS.md`。
+
+下方保留原项目文档；其中原作者的下载、更新、签名与测试说明属于原项目，不代表本个人版本已经发布或完成同样的验证。个人构建发布前需要单独配置更新来源及签名。
+
+---
 
 **简体中文 | [English](./README_en-us.md)**
 
@@ -12,7 +24,7 @@
 
 # TrafficMonitor 简介
 
-Traffic Monitor是一款用于Windows平台的网速监控悬浮窗软件，可以显示当前网速、CPU及内存利用率，支持嵌入到任务栏显示，支持更换皮肤、历史流量统计等功能。
+Traffic Monitor是一款用于 Windows平台的网速监控悬浮窗软件，可以显示当前网速、CPU及内存利用率，支持嵌入到任务栏显示，支持更换皮肤、历史流量统计等功能。
 
 # 相关链接：
 
